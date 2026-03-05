@@ -4,12 +4,24 @@ const Database = require('better-sqlite3');
 const path = require('path');
 
 const app = express();
-app.use(cors());
+
+// CORS - allow frontend origins
+app.use(cors({
+  origin: process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
+    : ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+}));
 app.use(express.json({ limit: '10mb' }));
 
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
 // Initialize SQLite database
-const dbPath = path.join(__dirname, 'trading_sessions.db');
+const dataDir = process.env.DATA_DIR || __dirname;
+const dbPath = path.join(dataDir, 'trading_sessions.db');
 const db = new Database(dbPath);
+console.log(`Database path: ${dbPath}`);
 
 // Create tables
 db.exec(`

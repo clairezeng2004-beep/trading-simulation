@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: trading-simulation-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: PORT
+        value: 3002
+      - key: CORS_ORIGIN
+        generateFrom: ""
+      - key: DATA_DIR
+        value: /opt/render/project/src/server
+    disk:
+      name: trading-data
+      mountPath: /opt/render/project/src/server/data
+      sizeGB: 1
