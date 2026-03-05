@@ -102,7 +102,6 @@ const App: React.FC = () => {
 
     setGameState(state);
     setGamePhase('playing');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePause = useCallback(() => {
@@ -119,7 +118,6 @@ const App: React.FC = () => {
       });
     }
     setGameState({ ...gameRef.current });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleStop = useCallback(() => {
@@ -136,7 +134,6 @@ const App: React.FC = () => {
     gameRef.current.commission += commission;
     showToast(`Trade has been performed: ${side} ${volume} ${ticker} @ ${price.toFixed(2)}`);
     syncState();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendQuote = useCallback((ticker: string, bidPrice: number, offerPrice: number, bidVol: number, offerVol: number, validFor: number) => {
@@ -217,7 +214,6 @@ const App: React.FC = () => {
         syncState();
       }
     }, Math.random() * 10000 + 3000);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAcceptQuote = useCallback((quote: Quote, side: 'BUY' | 'SELL') => {
@@ -231,7 +227,6 @@ const App: React.FC = () => {
     quote.expired = true;
     showToast(`Trade has been performed: ${side} ${volume} ${quote.ticker} @ ${price.toFixed(2)}`);
     syncState();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSendChat = useCallback((text: string) => {
@@ -247,7 +242,6 @@ const App: React.FC = () => {
       isQuote: false,
     });
     syncState();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSaveAndReview = useCallback(async (scoreCard: ReturnType<typeof calculateScoreCard>) => {
