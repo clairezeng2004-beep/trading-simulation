@@ -38,8 +38,10 @@ const QuotePanel: React.FC<Props> = ({ quotes, myPlayer, stocks, selectedChatPla
     setOfferVol('');
   };
 
-  const liveQuotes = quotes.filter(q => !q.expired);
-  const oldQuotes = quotes.filter(q => q.expired);
+  // Only show quotes sent by me (the current player)
+  const myQuotes = quotes.filter(q => q.from === myPlayer.name);
+  const liveQuotes = myQuotes.filter(q => !q.expired);
+  const oldQuotes = myQuotes.filter(q => q.expired);
   const displayQuotes = activeQuotesTab === 'live' ? liveQuotes : oldQuotes;
 
   return (

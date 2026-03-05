@@ -19,7 +19,8 @@ const ChatPanel: React.FC<Props> = ({ messages, players, myPlayer, onSendMessage
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  const filteredPlayers = players.filter(p => !p.isHuman).filter(p =>
+  // Only show AM players in the player list
+  const filteredPlayers = players.filter(p => !p.isHuman && p.role === 'AM').filter(p =>
     !playerSearch || p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
     `${p.role}-${p.team}`.toLowerCase().includes(playerSearch.toLowerCase())
   );
