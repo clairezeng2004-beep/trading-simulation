@@ -5,11 +5,12 @@ interface Props {
   quotes: Quote[];
   myPlayer: Player;
   stocks: Stock[];
-  onSendQuote: (ticker: string, bidPrice: number, offerPrice: number, bidVol: number, offerVol: number, validFor: number) => void;
+  selectedChatPlayer?: Player | null;
+  onSendQuote: (ticker: string, bidPrice: number, offerPrice: number, bidVol: number, offerVol: number, validFor: number, targetPlayer?: Player) => void;
   onAcceptQuote: (quote: Quote, side: 'BUY' | 'SELL') => void;
 }
 
-const QuotePanel: React.FC<Props> = ({ quotes, myPlayer, stocks, onSendQuote, onAcceptQuote }) => {
+const QuotePanel: React.FC<Props> = ({ quotes, myPlayer, stocks, selectedChatPlayer, onSendQuote, onAcceptQuote }) => {
   const [ticker, setTicker] = useState('');
   const [bidPrice, setBidPrice] = useState('');
   const [offerPrice, setOfferPrice] = useState('');
@@ -17,6 +18,8 @@ const QuotePanel: React.FC<Props> = ({ quotes, myPlayer, stocks, onSendQuote, on
   const [offerVol, setOfferVol] = useState('');
   const [validFor, setValidFor] = useState('45');
   const [activeQuotesTab, setActiveQuotesTab] = useState<'live' | 'old'>('live');
+
+  const canSendQuote = !(myPlayer.role === 'IB' && selectedChatPlayer?.role === 'IB');
 
   const handleSendQuote = () => {
     if (!ticker || !bidPrice || !offerPrice || !bidVol || !offerVol) return;
@@ -26,7 +29,8 @@ const QuotePanel: React.FC<Props> = ({ quotes, myPlayer, stocks, onSendQuote, on
       parseFloat(offerPrice),
       parseInt(bidVol),
       parseInt(offerVol),
-      parseInt(validFor) || 45
+      parseInt(validFor) || 45,
+      selectedChatPlayer || undefined
     );
     setBidPrice('');
     setOfferPrice('');
@@ -103,7 +107,14 @@ const QuotePanel: React.FC<Props> = ({ quotes, myPlayer, stocks, onSendQuote, on
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }} />
-            <button className="btn-quote" onClick={handleSendQuote}>SEND QUOTE</button>
+            <button className="btn-quote" onClick={handleSendQuote} disabled={!canSendQuote}>
+              {canSendQuote ? 'SEND QUOTE' : 'IB→IB QUOTE NOT ALLOWED'}
+            </button>
+            {selectedChatPlayer && (
+              <div className="quote-target-info">
+                Quoting to: <strong>{selectedChatPlayer.name}</strong> ({selectedChatPlayer.role}-{selectedChatPlayer.team})
+              </div>
+            )}
           </div>
         </div>
 

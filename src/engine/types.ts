@@ -52,6 +52,9 @@ export interface ChatMessage {
   from: string;
   fromRole: Role;
   fromTeam: number;
+  to?: string;        // recipient name, undefined = broadcast to all
+  toRole?: Role;
+  toTeam?: number;
   text: string;
   timestamp: number;
   isQuote: boolean;

@@ -414,16 +414,58 @@ export function generateAIChatMessage(state: GameState): ChatMessage | null {
   const player = aiPlayers[Math.floor(Math.random() * aiPlayers.length)];
   const stock = state.stocks[Math.floor(Math.random() * state.stocks.length)];
 
-  const messages = [
-    `${stock.ticker} 10k buy pls`,
-    `Looking for ${stock.ticker} offers`,
-    `Can I get a quote on ${stock.ticker}?`,
-    `${stock.ticker} looking heavy`,
-    `Anyone have ${stock.ticker}?`,
-    `Need to sell ${stock.ticker} 5k`,
-    `${stock.ticker} bid wanted`,
-    `The quote has been executed on by ${player.role}, ${stock.ticker}:sell, volume:${Math.round(Math.random() * 10 + 1) * 1000}, price:${stock.currentPrice}`,
-  ];
+  // Determine message target: 60% broadcast, 40% directed to a specific player
+  let to: string | undefined;
+  let toRole: Role | undefined;
+  let toTeam: number | undefined;
+
+  if (Math.random() < 0.4) {
+    // Pick a random target (could be human or another AI)
+    const possibleTargets = state.players.filter(p => p.name !== player.name);
+    if (possibleTargets.length > 0) {
+      const target = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+      to = target.name;
+      toRole = target.role;
+      toTeam = target.team;
+    }
+  }
+
+  // AM players ask for quotes (directed to IB), IB players respond with market commentary
+  let messages: string[];
+  if (player.role === 'AM') {
+    messages = [
+      `${stock.ticker} 10k buy pls`,
+      `Looking for ${stock.ticker} offers`,
+      `Can I get a quote on ${stock.ticker}?`,
+      `Need to sell ${stock.ticker} 5k`,
+      `${stock.ticker} bid wanted`,
+      `Anyone have ${stock.ticker}?`,
+      `What's your market on ${stock.ticker}?`,
+      `I need ${stock.ticker} ${Math.round(Math.random() * 15 + 1) * 1000} shares`,
+    ];
+    // AM targets IB players for quote requests
+    if (Math.random() < 0.5 && !to) {
+      const ibPlayers = state.players.filter(p => p.role === 'IB');
+      if (ibPlayers.length > 0) {
+        const target = ibPlayers[Math.floor(Math.random() * ibPlayers.length)];
+        to = target.name;
+        toRole = target.role;
+        toTeam = target.team;
+      }
+    }
+  } else {
+    // IB messages
+    messages = [
+      `${stock.ticker} looking heavy`,
+      `Market on ${stock.ticker}: ${stock.currentPrice.toFixed(2)}`,
+      `${stock.ticker} spread tightening`,
+      `Got ${stock.ticker} at ${stock.currentPrice.toFixed(2)}`,
+      `${stock.ticker} volume picking up`,
+      `Working an order on ${stock.ticker}`,
+      `The quote has been executed on by ${player.role}, ${stock.ticker}:sell, volume:${Math.round(Math.random() * 10 + 1) * 1000}, price:${stock.currentPrice}`,
+      `${stock.ticker} showing strength here`,
+    ];
+  }
 
   const text = messages[Math.floor(Math.random() * messages.length)];
 
@@ -437,7 +479,105 @@ export function generateAIChatMessage(state: GameState): ChatMessage | null {
     from: player.name,
     fromRole: player.role,
     fromTeam: player.team,
+    to,
+    toRole,
+    toTeam,
     text,
+    timestamp: Date.now(),
+    isQuote: false,
+  };
+}
+
+// Generate AI reply to a player's message
+export function generateAIReply(state: GameState, originalMsg: ChatMessage): ChatMessage | null {
+  // Find AI players that could reply
+  let candidates = state.players.filter(p => !p.isHuman && p.name !== originalMsg.from);
+
+  // If message was directed to a specific AI, that AI should reply
+  if (originalMsg.to) {
+    const targetPlayer = candidates.find(p => p.name === originalMsg.to);
+    if (targetPlayer) {
+      candidates = [targetPlayer];
+    } else {
+      return null; // target is not an AI
+    }
+  } else {
+    // For broadcast messages, random AI might reply
+    if (Math.random() > 0.3) return null;
+    candidates = candidates.slice(0, 10);
+  }
+
+  if (candidates.length === 0) return null;
+  const replier = candidates[Math.floor(Math.random() * candidates.length)];
+
+  const stock = state.stocks[Math.floor(Math.random() * state.stocks.length)];
+  const msgLower = originalMsg.text.toLowerCase();
+
+  let replyText: string;
+
+  // Context-aware replies
+  if (msgLower.includes('buy') || msgLower.includes('bid wanted')) {
+    if (replier.role === 'IB') {
+      replyText = [
+        `I can offer ${stock.ticker} at ${(stock.currentPrice * 1.005).toFixed(2)}`,
+        `Working on it, will get back to you`,
+        `${stock.ticker} offer at ${(stock.currentPrice * 1.008).toFixed(2)} for 5k`,
+        `Let me check my book on ${stock.ticker}`,
+      ][Math.floor(Math.random() * 4)];
+    } else {
+      replyText = [
+        `I'm also looking to buy ${stock.ticker}`,
+        `Good luck with that, ${stock.ticker} is tight right now`,
+        `Same here, need ${stock.ticker}`,
+      ][Math.floor(Math.random() * 3)];
+    }
+  } else if (msgLower.includes('sell') || msgLower.includes('offer')) {
+    if (replier.role === 'IB') {
+      replyText = [
+        `I'll bid ${stock.ticker} at ${(stock.currentPrice * 0.995).toFixed(2)}`,
+        `What size are you looking to sell?`,
+        `${stock.ticker} bid at ${(stock.currentPrice * 0.992).toFixed(2)} for 10k`,
+      ][Math.floor(Math.random() * 3)];
+    } else {
+      replyText = [
+        `Interesting, ${stock.ticker} still has room to run`,
+        `Noted, thanks for the heads up`,
+      ][Math.floor(Math.random() * 2)];
+    }
+  } else if (msgLower.includes('quote') || msgLower.includes('market on')) {
+    if (replier.role === 'IB') {
+      const spread = stock.currentPrice * 0.01;
+      replyText = [
+        `${stock.ticker}: ${(stock.currentPrice - spread/2).toFixed(2)} / ${(stock.currentPrice + spread/2).toFixed(2)} in 5k`,
+        `Sure, sending quote on ${stock.ticker} now`,
+        `${stock.ticker} market is ${(stock.currentPrice - spread).toFixed(2)} at ${(stock.currentPrice + spread).toFixed(2)}`,
+      ][Math.floor(Math.random() * 3)];
+    } else {
+      replyText = `Check the quote panel for ${stock.ticker}`;
+    }
+  } else {
+    // Generic replies
+    replyText = [
+      `Agreed`,
+      `Thanks for the info`,
+      `Roger that`,
+      `Copy`,
+      `Makes sense`,
+      `Will keep an eye on it`,
+      `Good to know`,
+      `👍`,
+    ][Math.floor(Math.random() * 8)];
+  }
+
+  return {
+    id: `C-${nextChatId++}`,
+    from: replier.name,
+    fromRole: replier.role,
+    fromTeam: replier.team,
+    to: originalMsg.from,
+    toRole: originalMsg.fromRole,
+    toTeam: originalMsg.fromTeam,
+    text: replyText,
     timestamp: Date.now(),
     isQuote: false,
   };

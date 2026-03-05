@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './styles/App.css';
-import { Role, GameState, Quote } from './engine/types';
-import { initGameState, startGame, stopGame, executeTrade, resetEngine, calculateScoreCard } from './engine/gameEngine';
+import { Role, GameState, Quote, Player } from './engine/types';
+import { initGameState, startGame, stopGame, executeTrade, resetEngine, calculateScoreCard, generateAIReply } from './engine/gameEngine';
 import { saveSession } from './engine/api';
 import { startAmbient, stopAmbient, pauseAmbient, resumeAmbient, playTradeSound, playNewsAlert, playGameOverSound, playTimerWarning } from './engine/audioManager';
 import RoleSelection from './components/RoleSelection';
@@ -40,6 +40,7 @@ const App: React.FC = () => {
   const [selectedTicker, setSelectedTicker] = useState('NFLX');
   const [toast, setToast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selectedChatPlayer, setSelectedChatPlayer] = useState<Player | null>(null);
   const gameRef = useRef<GameState | null>(null);
   const priceHistoryRef = useRef<PriceSnapshot[]>([]);
   const quotesTrackingRef = useRef<QuoteTracking[]>([]);
@@ -159,9 +160,15 @@ const App: React.FC = () => {
     syncState();
   }, []);
 
-  const handleSendQuote = useCallback((ticker: string, bidPrice: number, offerPrice: number, bidVol: number, offerVol: number, validFor: number) => {
+  const handleSendQuote = useCallback((ticker: string, bidPrice: number, offerPrice: number, bidVol: number, offerVol: number, validFor: number, targetPlayer?: Player) => {
     if (!gameRef.current || !gameRef.current.running) return;
     const myPlayer = gameRef.current.myPlayer;
+
+    // Rule: IB can only quote to AM, IB cannot quote to IB
+    if (myPlayer.role === 'IB' && targetPlayer && targetPlayer.role === 'IB') {
+      showToast('IB cannot send quotes to other IBs. Quotes can only be sent to AMs.');
+      return;
+    }
     const quoteId = `Q-MY-${Date.now()}`;
     const quote: Quote = {
       id: quoteId,
@@ -254,19 +261,35 @@ const App: React.FC = () => {
     syncState();
   }, []);
 
-  const handleSendChat = useCallback((text: string) => {
+  const handleSendChat = useCallback((text: string, toPlayer?: Player) => {
     if (!gameRef.current) return;
     const myPlayer = gameRef.current.myPlayer;
-    gameRef.current.chatMessages.push({
+    const msg = {
       id: `C-MY-${Date.now()}`,
       from: myPlayer.name,
       fromRole: myPlayer.role,
       fromTeam: myPlayer.team,
+      to: toPlayer?.name,
+      toRole: toPlayer?.role,
+      toTeam: toPlayer?.team,
       text,
       timestamp: Date.now(),
       isQuote: false,
-    });
+    };
+    gameRef.current.chatMessages.push(msg);
     syncState();
+
+    // AI auto-reply after 1-4 seconds
+    if (gameRef.current.running) {
+      setTimeout(() => {
+        if (!gameRef.current || !gameRef.current.running) return;
+        const reply = generateAIReply(gameRef.current, msg);
+        if (reply) {
+          gameRef.current.chatMessages.push(reply);
+          syncState();
+        }
+      }, 1000 + Math.random() * 3000);
+    }
   }, []);
 
   const handleSaveAndReview = useCallback(async (scoreCard: ReturnType<typeof calculateScoreCard>) => {
@@ -332,12 +355,15 @@ const App: React.FC = () => {
         <ChatPanel
           messages={gameState.chatMessages}
           players={gameState.players}
+          myPlayer={gameState.myPlayer}
           onSendMessage={handleSendChat}
+          onSelectPlayer={setSelectedChatPlayer}
         />
         <QuotePanel
           quotes={gameState.quotes}
           myPlayer={gameState.myPlayer}
           stocks={gameState.stocks}
+          selectedChatPlayer={selectedChatPlayer}
           onSendQuote={handleSendQuote}
           onAcceptQuote={handleAcceptQuote}
         />
