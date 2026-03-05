@@ -19,31 +19,33 @@ const ChatPanel: React.FC<Props> = ({ messages, players, myPlayer, onSendMessage
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  // Only show AM players in the player list
-  const filteredPlayers = players.filter(p => !p.isHuman && p.role === 'AM').filter(p =>
+  // AM can only message IB, IB can only message AM
+  const targetRole = myPlayer.role === 'AM' ? 'IB' : 'AM';
+  const filteredPlayers = players.filter(p => !p.isHuman && p.role === targetRole).filter(p =>
     !playerSearch || p.name.toLowerCase().includes(playerSearch.toLowerCase()) ||
     `${p.role}-${p.team}`.toLowerCase().includes(playerSearch.toLowerCase())
   );
 
   const displayPlayers = playerSearch ? filteredPlayers : filteredPlayers.slice(0, 30);
 
-  // Filter messages: show broadcast messages + DMs involving me and selected player
+  // Only show DMs involving me (no broadcasts)
   const visibleMessages = messages.filter(msg => {
+    const involvesMe =
+      (msg.from === myPlayer.name) || (msg.to === myPlayer.name);
+    if (!involvesMe) return false;
     if (selectedPlayer) {
-      // In DM view: show DMs between me and selected player, plus broadcasts
-      const isDMBetweenUs =
-        (msg.from === selectedPlayer.name && msg.to === myPlayer.name) ||
-        (msg.from === myPlayer.name && msg.to === selectedPlayer.name);
-      const isBroadcast = !msg.to;
-      return isDMBetweenUs || isBroadcast;
+      // In DM view: only show messages between me and selected player
+      return (msg.from === selectedPlayer.name && msg.to === myPlayer.name) ||
+             (msg.from === myPlayer.name && msg.to === selectedPlayer.name);
     }
-    // In "All" view: show everything
+    // No player selected: show all my DMs
     return true;
   });
 
   const handleSend = () => {
+    if (!selectedPlayer) return; // Must select a player, no broadcast allowed
     if (input.trim()) {
-      onSendMessage(input.trim(), selectedPlayer || undefined);
+      onSendMessage(input.trim(), selectedPlayer);
       setInput('');
     }
   };
@@ -122,7 +124,7 @@ const ChatPanel: React.FC<Props> = ({ messages, players, myPlayer, onSendMessage
               <span className="time">[{formatTime(msg.timestamp)}] </span>
               {isDM && <span className="dm-tag">[DM] </span>}
               <span className="sender">
-                {isFromMe ? 'You' : msg.from} → {isDM ? (isToMe ? 'You' : msg.to) : 'ALL'}:&nbsp;
+                {isFromMe ? 'You' : msg.from} → {isDM ? (isToMe ? 'You' : msg.to) : ''}:&nbsp;
               </span>
               <span className="msg-text">{msg.text}</span>
             </div>
@@ -132,16 +134,17 @@ const ChatPanel: React.FC<Props> = ({ messages, players, myPlayer, onSendMessage
       </div>
       <div className="chat-input-area">
         <div className="chat-target-badge">
-          {selectedPlayer ? `To: ${selectedPlayer.name}` : 'To: ALL'}
+          {selectedPlayer ? `To: ${selectedPlayer.name}` : `Select a ${targetRole} to chat`}
         </div>
         <input
           type="text"
-          placeholder={selectedPlayer ? `Message ${selectedPlayer.name}...` : 'Message everyone...'}
+          placeholder={selectedPlayer ? `Message ${selectedPlayer.name}...` : `Select a ${targetRole} first...`}
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSend()}
+          disabled={!selectedPlayer}
         />
-        <button className="btn-send" onClick={handleSend}>SEND</button>
+        <button className="btn-send" onClick={handleSend} disabled={!selectedPlayer}>SEND</button>
       </div>
     </div>
   );

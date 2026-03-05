@@ -414,21 +414,14 @@ export function generateAIChatMessage(state: GameState): ChatMessage | null {
   const player = aiPlayers[Math.floor(Math.random() * aiPlayers.length)];
   const stock = state.stocks[Math.floor(Math.random() * state.stocks.length)];
 
-  // Determine message target: 60% broadcast, 40% directed to a specific player
-  let to: string | undefined;
-  let toRole: Role | undefined;
-  let toTeam: number | undefined;
-
-  if (Math.random() < 0.4) {
-    // Pick a random target (could be human or another AI)
-    const possibleTargets = state.players.filter(p => p.name !== player.name);
-    if (possibleTargets.length > 0) {
-      const target = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
-      to = target.name;
-      toRole = target.role;
-      toTeam = target.team;
-    }
-  }
+  // Enforce AM↔IB rule: AM can only message IB, IB can only message AM. No broadcasts.
+  const targetRole: Role = player.role === 'AM' ? 'IB' : 'AM';
+  const possibleTargets = state.players.filter(p => p.name !== player.name && p.role === targetRole);
+  if (possibleTargets.length === 0) return null;
+  const target = possibleTargets[Math.floor(Math.random() * possibleTargets.length)];
+  const to = target.name;
+  const toRole = target.role;
+  const toTeam = target.team;
 
   // AM players ask for quotes (directed to IB), IB players respond with market commentary
   let messages: string[];
@@ -443,16 +436,6 @@ export function generateAIChatMessage(state: GameState): ChatMessage | null {
       `What's your market on ${stock.ticker}?`,
       `I need ${stock.ticker} ${Math.round(Math.random() * 15 + 1) * 1000} shares`,
     ];
-    // AM targets IB players for quote requests
-    if (Math.random() < 0.5 && !to) {
-      const ibPlayers = state.players.filter(p => p.role === 'IB');
-      if (ibPlayers.length > 0) {
-        const target = ibPlayers[Math.floor(Math.random() * ibPlayers.length)];
-        to = target.name;
-        toRole = target.role;
-        toTeam = target.team;
-      }
-    }
   } else {
     // IB messages
     messages = [
