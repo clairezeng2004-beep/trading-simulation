@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './styles/App.css';
 import { Role, GameState, Quote } from './engine/types';
 import { initGameState, startGame, stopGame, executeTrade, resetEngine, calculateScoreCard } from './engine/gameEngine';
 import { saveSession } from './engine/api';
+import { startAmbient, stopAmbient, pauseAmbient, resumeAmbient, playTradeSound, playNewsAlert, playGameOverSound, playTimerWarning } from './engine/audioManager';
 import RoleSelection from './components/RoleSelection';
 import TopBar from './components/TopBar';
 import EquityPanel from './components/EquityPanel';
@@ -42,6 +43,18 @@ const App: React.FC = () => {
   const gameRef = useRef<GameState | null>(null);
   const priceHistoryRef = useRef<PriceSnapshot[]>([]);
   const quotesTrackingRef = useRef<QuoteTracking[]>([]);
+  const timerWarningFiredRef = useRef(false);
+
+  // Play warning sound when 60 seconds remain
+  useEffect(() => {
+    if (gameState && gamePhase === 'playing' && gameState.timeRemaining === 60 && !timerWarningFiredRef.current) {
+      playTimerWarning();
+      timerWarningFiredRef.current = true;
+    }
+    if (gameState && gameState.timeRemaining > 60) {
+      timerWarningFiredRef.current = false;
+    }
+  }, [gameState?.timeRemaining, gamePhase]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -96,10 +109,13 @@ const App: React.FC = () => {
       syncState();
       if (gameRef.current && gameRef.current.timeRemaining <= 0) {
         clearInterval(priceInterval);
+        stopAmbient();
+        playGameOverSound();
         setGamePhase('ended');
       }
     });
 
+    startAmbient();
     setGameState(state);
     setGamePhase('playing');
   }, []);
@@ -109,13 +125,17 @@ const App: React.FC = () => {
     if (gameRef.current.running) {
       stopGame(gameRef.current);
       gameRef.current.running = false;
+      pauseAmbient();
     } else {
       startGame(gameRef.current, () => {
         syncState();
         if (gameRef.current && gameRef.current.timeRemaining <= 0) {
+          stopAmbient();
+          playGameOverSound();
           setGamePhase('ended');
         }
       });
+      resumeAmbient();
     }
     setGameState({ ...gameRef.current });
   }, []);
@@ -123,6 +143,8 @@ const App: React.FC = () => {
   const handleStop = useCallback(() => {
     if (!gameRef.current) return;
     stopGame(gameRef.current);
+    stopAmbient();
+    playGameOverSound();
     setGamePhase('ended');
     setGameState({ ...gameRef.current });
   }, []);
@@ -133,6 +155,7 @@ const App: React.FC = () => {
     gameRef.current.myTrades.push(trade);
     gameRef.current.commission += commission;
     showToast(`Trade has been performed: ${side} ${volume} ${ticker} @ ${price.toFixed(2)}`);
+    playTradeSound();
     syncState();
   }, []);
 
@@ -211,6 +234,7 @@ const App: React.FC = () => {
         const qt = quotesTrackingRef.current.find(q => q.id === quoteId);
         if (qt) qt.wasAccepted = true;
         showToast(`Quote accepted by AI client: ${side === 'BUY' ? 'SELL' : 'BUY'} ${vol} ${ticker} @ ${price}`);
+        playTradeSound();
         syncState();
       }
     }, Math.random() * 10000 + 3000);
@@ -226,6 +250,7 @@ const App: React.FC = () => {
     gameRef.current.scoringData.matchedClientRequests++;
     quote.expired = true;
     showToast(`Trade has been performed: ${side} ${volume} ${quote.ticker} @ ${price.toFixed(2)}`);
+    playTradeSound();
     syncState();
   }, []);
 
@@ -269,6 +294,7 @@ const App: React.FC = () => {
     if (gameRef.current) {
       stopGame(gameRef.current);
     }
+    stopAmbient();
     gameRef.current = null;
     setGameState(null);
     setGamePhase('selection');

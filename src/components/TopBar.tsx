@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { GameState } from '../engine/types';
+import { setVolume, getVolume, toggleMute } from '../engine/audioManager';
 
 interface Props {
   state: GameState;
@@ -8,6 +9,9 @@ interface Props {
 }
 
 const TopBar: React.FC<Props> = ({ state, onPause, onStop }) => {
+  const [muted, setMuted] = useState(false);
+  const [vol, setVol] = useState(getVolume());
+
   const minutes = Math.floor(state.timeRemaining / 60);
   const seconds = state.timeRemaining % 60;
   const timeStr = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -20,6 +24,18 @@ const TopBar: React.FC<Props> = ({ state, onPause, onStop }) => {
     const abs = Math.abs(v);
     const formatted = abs.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
     return v < 0 ? `-${formatted}` : formatted;
+  };
+
+  const handleToggleMute = () => {
+    const isMuted = toggleMute();
+    setMuted(isMuted);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = parseFloat(e.target.value);
+    setVol(v);
+    setVolume(v);
+    if (v > 0) setMuted(false);
   };
 
   return (
@@ -57,6 +73,19 @@ const TopBar: React.FC<Props> = ({ state, onPause, onStop }) => {
           ⏱ {timeStr}
         </div>
         <div className="game-controls">
+          <button className="btn-control btn-audio" onClick={handleToggleMute} title={muted ? 'Unmute' : 'Mute'}>
+            {muted ? '🔇' : '🔊'}
+          </button>
+          <input
+            type="range"
+            className="volume-slider"
+            min="0"
+            max="1"
+            step="0.05"
+            value={muted ? 0 : vol}
+            onChange={handleVolumeChange}
+            title={`Volume: ${Math.round(vol * 100)}%`}
+          />
           <button className="btn-control" onClick={onPause} title={state.running ? 'Pause' : 'Resume'}>
             {state.running ? '⏸' : '▶'}
           </button>

@@ -247,6 +247,40 @@ body {
 .game-controls {
   display: flex;
   gap: 6px;
+  align-items: center;
+}
+
+.btn-audio {
+  font-size: 14px;
+}
+
+.volume-slider {
+  width: 60px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: #2a3a50;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  margin-right: 4px;
+}
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #4fc3f7;
+  cursor: pointer;
+  border: none;
+}
+.volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #4fc3f7;
+  cursor: pointer;
+  border: none;
 }
 
 .btn-control {

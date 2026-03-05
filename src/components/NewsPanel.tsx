@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { NewsItem } from '../engine/types';
+import { playNewsAlert } from '../engine/audioManager';
 
 interface Props {
   newsItems: NewsItem[];
@@ -7,6 +8,14 @@ interface Props {
 
 const NewsPanel: React.FC<Props> = ({ newsItems }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const prevCountRef = useRef(newsItems.length);
+
+  useEffect(() => {
+    if (newsItems.length > prevCountRef.current) {
+      playNewsAlert();
+    }
+    prevCountRef.current = newsItems.length;
+  }, [newsItems.length]);
 
   const filtered = searchTerm
     ? newsItems.filter(n =>
